@@ -32,7 +32,7 @@ function Main() {
     const [ time, setTime ] = useState('00:00');
 
     useEffect(() => {
-       
+       dispatch(actions.getScedule());
     })
 
 
@@ -52,7 +52,7 @@ function Main() {
             time
         }
 
-        dispatch(actions.saveScedule(payload))
+        dispatch(actions.addSceduleToDb(payload));
     }
 
     return (

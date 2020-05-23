@@ -1,37 +1,62 @@
 import db from '../config/firebase.config';
 
-// const GET_SCEDULE = 'GET_SCEDULE';
 const SAVE_SCEDULE = 'SAVE_SCEDULE';
+const SHOW_HOURS = 'SHOW_HOURS';
+const SHOW_EXISTS_ERROR = 'SHOW_EXISTS_ERROR';
+const HIDE_EXISTS_ERROR = 'HIDE_EXISTS_ERROR';
 
 export const actions = {
+    showExistsError: () => ({type: SHOW_EXISTS_ERROR}),
+    hideExistsError: () => ({type: HIDE_EXISTS_ERROR}),
     saveScedule: (payload) => ({type: SAVE_SCEDULE, payload}),
-    getScedule: (payload) => {
+    showHours: (payload) => ({type: SHOW_HOURS, payload }),
+    getScedule: (payload) => { 
         return dispatch => {
-            db.collection("scedules").get().then((querySnapshot) => {
-                const scedules = [];
-                querySnapshot.forEach((doc) => {
-                    scedules.push(doc.data());
+            db.collection("scedules")
+                .where("date", "==", payload)
+                .get()
+                .then((querySnapshot) => {
+                    const scedules = [];
+                    querySnapshot.forEach((doc) => {
+                        scedules.push(doc.data());
+                    });
+                    dispatch(actions.saveScedule(scedules));
+                }).then(() => {
+                    dispatch(actions.showHours(payload));
                 });
-                dispatch(actions.saveScedule(scedules));
-            });
         };
     },
     addSceduleToDb: (payload) => {
         return dispatch => {
-            db.collection("scedules").add(payload)
-            .then(function(docRef) {
-                console.log("Document written with ID: ", docRef.id);
-               
+            db.collection("scedules")
+            .where("date", "==", payload.date)
+            .where("time", "==", payload.time)
+            .get()
+            .then((doc) => {
+                if (doc.empty) {
+                    db.collection("scedules").add(payload)
+                    .then(function() {
+                        dispatch(actions.getScedule(payload.date));               
+                    })
+                    .catch(function(error) {
+                        console.error("Error adding document: ", error);
+                    });
+                } else {
+                    throw new Error('Document exists!')
+                }
             })
-            .catch(function(error) {
-                console.error("Error adding document: ", error);
-            });
+            .catch((error) => {
+                dispatch(actions.showExistsError())
+            })
+            
         };
     }
 }
 
 const initialState = {
-    scedule: []
+    scedule: [],
+    filteredScedule: [],
+    docExists: false
 }
 
 export const mainReducer = (state=initialState, action) => {
@@ -39,7 +64,26 @@ export const mainReducer = (state=initialState, action) => {
         case SAVE_SCEDULE:
             return {
             ...state,
-            scedule: [...state, ...action.payload]
+            scedule: [...action.payload]
+            }
+        case SHOW_HOURS:
+        const reservedTimes = [];
+        const filteredDate = state.scedule.filter(item => item.date === action.payload);
+        filteredDate.forEach(item => reservedTimes.push(item.time))
+
+        return {
+        ...state,
+        filteredScedule: [...reservedTimes]
+        }
+        case SHOW_EXISTS_ERROR:
+            return {
+            ...state,
+            docExists: true
+            }
+        case HIDE_EXISTS_ERROR:
+            return {
+            ...state,
+            docExists: false
             }
         default:
           return state
